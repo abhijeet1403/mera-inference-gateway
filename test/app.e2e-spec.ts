@@ -4,13 +4,21 @@ import request from 'supertest';
 import { App } from 'supertest/types';
 import { AppModule } from './../src/app.module';
 
+// Static Ed25519 test key in JWK format (for testing only — never use in production)
+const TEST_PUBLIC_KEY_JWK = JSON.stringify({
+  crv: 'Ed25519',
+  x: 'XJbFrdPrRJPI-LsILQVGs6e2Orl6mHYLjl2_c9UdyyI',
+  kty: 'OKP',
+  alg: 'EdDSA',
+  kid: 'test-key-001',
+});
+
 describe('InferenceGateway (e2e)', () => {
   let app: INestApplication<App>;
 
   beforeAll(async () => {
-    // Provide required env vars for test context
     process.env.RED_PILL_API_KEY = 'test-key';
-    process.env.BETTER_AUTH_SECRET = 'test-secret-must-be-long-enough-for-jwt';
+    process.env.JWT_PUBLIC_KEY = TEST_PUBLIC_KEY_JWK;
 
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [AppModule],

@@ -63,7 +63,7 @@ cp .env.example .env
 | Variable | Required | Default | Description |
 |----------|----------|---------|-------------|
 | `RED_PILL_API_KEY` | Yes | — | RedPill AI API key |
-| `BETTER_AUTH_SECRET` | Yes | — | Shared secret for JWT token verification |
+| `JWT_PUBLIC_KEY` | Yes | — | Ed25519 public key in JWK format (copy a key object from auth service's `/api/auth/jwks`) |
 | `PORT` | No | `8080` | Server port |
 | `NODE_ENV` | No | `development` | Environment (`development` / `production`) |
 | `DEFAULT_MODEL` | No | `phala/qwen3-vl-30b-a3b-instruct` | Default inference model |
@@ -102,7 +102,8 @@ gcloud run deploy mera-inference-gateway \
   --image gcr.io/YOUR_PROJECT/mera-inference-gateway \
   --platform managed \
   --region us-central1 \
-  --set-env-vars "RED_PILL_API_KEY=your-key,BETTER_AUTH_SECRET=your-secret,NODE_ENV=production" \
+  --set-env-vars "RED_PILL_API_KEY=your-key,NODE_ENV=production" \
+  --set-env-vars "JWT_PUBLIC_KEY=-----BEGIN PUBLIC KEY-----\nMCo..." \
   --port 8080 \
   --allow-unauthenticated
 ```
@@ -116,7 +117,7 @@ The default model is configured in [`src/constants.ts`](src/constants.ts) and ca
 ## Security
 
 - **E2EE passthrough**: Gateway never decrypts or inspects message content
-- **JWT authentication**: Stateless token verification — no database connection required
+- **JWT authentication**: Ed25519 asymmetric verification using only the public key — no shared secret, no database
 - **Rate limiting**: Configurable per-window throttling (default: 30 req/60s)
 - **Helmet**: Standard security headers
 - **Input validation**: DTO validation on all endpoints

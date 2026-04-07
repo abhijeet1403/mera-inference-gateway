@@ -49,17 +49,19 @@ The gateway is intentionally ignorant of message content. `ChatRequestBody.messa
 
 ## Auth
 
-- Stateless JWT verification using `BETTER_AUTH_SECRET`
-- No database connection — token signature is verified locally
+- Stateless JWT verification using Ed25519 **public key** (`JWT_PUBLIC_KEY` env var)
+- Asymmetric: gateway only has the public key, private key never leaves the auth service
+- Verifies `iss: 'mera-server-auth'` claim (constant in `src/constants.ts`)
+- No database, no shared secret, no HTTP calls to auth service
 - Bearer token extracted from `Authorization` header
-- Requires the auth service to issue JWTs signed with the same secret
+- Requires the auth service to have the `jwt()` plugin enabled (better-auth)
 
 ## Environment Variables
 
 | Variable | Required | Default |
 |----------|----------|---------|
 | `RED_PILL_API_KEY` | Yes | — |
-| `BETTER_AUTH_SECRET` | Yes | — |
+| `JWT_PUBLIC_KEY` | Yes | — |
 | `PORT` | No | `8080` |
 | `DEFAULT_MODEL` | No | `phala/qwen3-vl-30b-a3b-instruct` |
 | `NODE_ENV` | No | `development` |

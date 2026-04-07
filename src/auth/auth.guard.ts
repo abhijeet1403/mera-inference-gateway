@@ -3,41 +3,49 @@ import {
   ExecutionContext,
   Injectable,
   Logger,
+  OnModuleInit,
   UnauthorizedException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import type { Request } from 'express';
-import * as jwt from 'jsonwebtoken';
+import { importJWK, jwtVerify, errors as joseErrors } from 'jose';
+import type { JWTPayload } from 'jose';
+import { JWT_ISSUER } from '../constants';
 
 export interface AuthenticatedUser {
   id: string;
-  email: string;
-  name?: string;
+  subscriptionIsActive: boolean;
 }
 
 export interface AuthenticatedRequest extends Request {
   user: AuthenticatedUser;
 }
 
-interface JwtUserPayload extends jwt.JwtPayload {
-  id?: string;
-  email?: string;
-  name?: string;
+interface MeraJwtPayload extends JWTPayload {
+  userId?: string;
+  subscriptionIsActive?: boolean;
 }
 
 @Injectable()
-export class AuthGuard implements CanActivate {
+export class AuthGuard implements CanActivate, OnModuleInit {
   private readonly logger = new Logger('AuthGuard');
-  private readonly secret: string;
+  private readonly publicKeyJwk: string;
+  private publicKey!: CryptoKey;
 
   constructor(private configService: ConfigService) {
-    this.secret = this.configService.get<string>('BETTER_AUTH_SECRET', '');
-    if (!this.secret) {
-      throw new Error('BETTER_AUTH_SECRET environment variable is not set');
+    this.publicKeyJwk = this.configService.get<string>('JWT_PUBLIC_KEY', '');
+    if (!this.publicKeyJwk) {
+      throw new Error('JWT_PUBLIC_KEY environment variable is not set');
     }
   }
 
-  canActivate(context: ExecutionContext): boolean {
+  async onModuleInit() {
+    const jwk = JSON.parse(this.publicKeyJwk) as Record<string, unknown>;
+    this.publicKey = (await importJWK(jwk, 'EdDSA')) as CryptoKey;
+    this.logger.log('JWT public key loaded (Ed25519)');
+  }
+
+  async canActivate(context: ExecutionContext): Promise<boolean> {
     const request = context.switchToHttp().getRequest<AuthenticatedRequest>();
 
     const token = this.extractBearerToken(request);
@@ -46,19 +54,23 @@ export class AuthGuard implements CanActivate {
     }
 
     try {
-      const payload = jwt.verify(token, this.secret) as JwtUserPayload;
+      const { payload } = await jwtVerify(token, this.publicKey, {
+        issuer: JWT_ISSUER,
+      });
+
+      const jwtPayload = payload as MeraJwtPayload;
 
       request.user = {
-        id: payload.sub ?? payload.id ?? '',
-        email: payload.email ?? '',
-        name: payload.name,
+        id: jwtPayload.sub ?? jwtPayload.userId ?? '',
+        subscriptionIsActive: jwtPayload.subscriptionIsActive === true,
       };
 
       return true;
     } catch (error: unknown) {
       if (
-        error instanceof jwt.JsonWebTokenError ||
-        error instanceof jwt.TokenExpiredError
+        error instanceof joseErrors.JWTExpired ||
+        error instanceof joseErrors.JWSSignatureVerificationFailed ||
+        error instanceof joseErrors.JWTClaimValidationFailed
       ) {
         throw new UnauthorizedException('Invalid or expired token');
       }

@@ -21,7 +21,7 @@ npm install
 
 # Copy environment variables
 cp .env.example .env
-# Fill in RED_PILL_API_KEY and BETTER_AUTH_SECRET
+# Fill in RED_PILL_API_KEY and JWT_PUBLIC_KEY
 
 # Start development server
 npm run start:dev
