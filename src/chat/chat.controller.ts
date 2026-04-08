@@ -14,14 +14,11 @@ import { ChatService } from './chat.service';
 import { ChatRequestBody } from './dto/chat.dto';
 import { BatchInferRequestDto } from './dto/batch-infer.dto';
 
-/** Map Express-normalized (lowercase) header names → canonical case for RedPill API. */
+/** Map Express-normalized (lowercase) header names → canonical case for RedPill API (E2EE v1). */
 const E2EE_HEADER_MAP: Record<string, string> = {
   'x-signing-algo': 'X-Signing-Algo',
   'x-client-pub-key': 'X-Client-Pub-Key',
   'x-model-pub-key': 'X-Model-Pub-Key',
-  'x-e2ee-version': 'X-E2EE-Version',
-  'x-e2ee-nonce': 'X-E2EE-Nonce',
-  'x-e2ee-timestamp': 'X-E2EE-Timestamp',
 };
 
 @Controller('api')
@@ -143,8 +140,7 @@ export class ChatController {
   }
 
   private extractE2EEHeaders(req: Request): Record<string, string> | null {
-    const version = req.headers['x-e2ee-version'];
-    if (!version) return null;
+    if (!req.headers['x-signing-algo']) return null;
 
     const headers: Record<string, string> = {};
     for (const [lower, canonical] of Object.entries(E2EE_HEADER_MAP)) {
