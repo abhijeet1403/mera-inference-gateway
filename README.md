@@ -20,7 +20,7 @@ Client (E2EE encrypt) --> mera-inference-gateway --> RedPill AI (TEE decrypt + i
 ## API Endpoints
 
 ### `POST /api/chat`
-Streaming chat completions (SSE). Accepts OpenAI-compatible request format with E2EE-encrypted message content.
+Streaming chat completions (SSE). Accepts OpenAI-compatible request format with E2EE-encrypted message content
 
 **Headers:**
 - `Authorization: Bearer <jwt-token>` (required)
