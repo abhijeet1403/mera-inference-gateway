@@ -82,7 +82,7 @@ Health check endpoint. Returns `{ "status": "ok" }`.
 
 - Node.js 20+
 - A [RedPill AI](https://docs.redpill.ai) API key
-- A `BETTER_AUTH_SECRET` (shared with your auth service for JWT verification)
+- Access to your auth service's JWKS endpoint (for JWT verification)
 
 ### Installation
 
@@ -101,7 +101,7 @@ cp .env.example .env
 | Variable | Required | Default | Description |
 |----------|----------|---------|-------------|
 | `RED_PILL_API_KEY` | Yes | — | RedPill AI API key |
-| `JWT_PUBLIC_KEY` | Yes | — | Ed25519 public key in JWK format (copy a key object from auth service's `/api/auth/jwks`) |
+| `AUTH_JWKS_URL` | Yes | — | Auth service JWKS endpoint URL (e.g. `https://auth.mera.news/api/auth/jwks`) |
 | `PORT` | No | `8080` | Server port |
 | `NODE_ENV` | No | `development` | Environment (`development` / `production`) |
 | `DEFAULT_MODEL` | No | `phala/qwen3-vl-30b-a3b-instruct` | Default inference model |
@@ -141,7 +141,7 @@ gcloud run deploy mera-inference-gateway \
   --platform managed \
   --region us-central1 \
   --set-env-vars "RED_PILL_API_KEY=your-key,NODE_ENV=production" \
-  --set-env-vars "JWT_PUBLIC_KEY=-----BEGIN PUBLIC KEY-----\nMCo..." \
+  --set-env-vars "AUTH_JWKS_URL=https://auth.mera.news/api/auth/jwks" \
   --port 8080 \
   --allow-unauthenticated
 ```

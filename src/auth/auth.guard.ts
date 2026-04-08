@@ -8,8 +8,8 @@ import {
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import type { Request } from 'express';
-import { importJWK, jwtVerify, errors as joseErrors } from 'jose';
-import type { JWTPayload } from 'jose';
+import { createRemoteJWKSet, jwtVerify, errors as joseErrors } from 'jose';
+import type { JWTPayload, JWTVerifyGetKey } from 'jose';
 import { JWT_ISSUER } from '../constants';
 
 export interface AuthenticatedUser {
@@ -29,20 +29,44 @@ interface MeraJwtPayload extends JWTPayload {
 @Injectable()
 export class AuthGuard implements CanActivate, OnModuleInit {
   private readonly logger = new Logger('AuthGuard');
-  private readonly publicKeyJwk: string;
-  private publicKey!: CryptoKey;
+  private jwks!: JWTVerifyGetKey;
 
-  constructor(private configService: ConfigService) {
-    this.publicKeyJwk = this.configService.get<string>('JWT_PUBLIC_KEY', '');
-    if (!this.publicKeyJwk) {
-      throw new Error('JWT_PUBLIC_KEY environment variable is not set');
-    }
-  }
+  constructor(private configService: ConfigService) {}
 
   async onModuleInit() {
-    const jwk = JSON.parse(this.publicKeyJwk) as Record<string, unknown>;
-    this.publicKey = (await importJWK(jwk, 'EdDSA')) as CryptoKey;
-    this.logger.log('JWT public key loaded (Ed25519)');
+    const authJwksUrl = this.configService.get<string>('AUTH_JWKS_URL', '');
+    if (!authJwksUrl) {
+      throw new Error('AUTH_JWKS_URL environment variable is not set');
+    }
+
+    const jwksUrl = new URL(authJwksUrl);
+    this.jwks = createRemoteJWKSet(jwksUrl);
+
+    // Verify the JWKS endpoint is reachable at startup with exponential backoff (up to 10 minutes)
+    const maxElapsedMs = 10 * 60 * 1000;
+    const start = Date.now();
+    let delayMs = 1000;
+
+    while (true) {
+      try {
+        const res = await fetch(jwksUrl);
+        if (!res.ok) throw new Error(`JWKS endpoint returned ${res.status}`);
+        this.logger.log(`JWKS endpoint verified: ${authJwksUrl}`);
+        return;
+      } catch (error) {
+        const elapsed = Date.now() - start;
+        if (elapsed + delayMs > maxElapsedMs) {
+          throw new Error(
+            `JWKS endpoint ${authJwksUrl} unreachable after ${Math.round(elapsed / 1000)}s: ${error instanceof Error ? error.message : String(error)}`,
+          );
+        }
+        this.logger.warn(
+          `JWKS endpoint unreachable, retrying in ${delayMs / 1000}s...`,
+        );
+        await new Promise((resolve) => setTimeout(resolve, delayMs));
+        delayMs = Math.min(delayMs * 2, 30000);
+      }
+    }
   }
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
@@ -54,7 +78,7 @@ export class AuthGuard implements CanActivate, OnModuleInit {
     }
 
     try {
-      const { payload } = await jwtVerify(token, this.publicKey, {
+      const { payload } = await jwtVerify(token, this.jwks, {
         issuer: JWT_ISSUER,
       });
 
