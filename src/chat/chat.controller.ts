@@ -7,12 +7,21 @@ import {
   Res,
   UseGuards,
 } from '@nestjs/common';
-import type { Response } from 'express';
+import type { Request, Response } from 'express';
 import { AuthGuard } from '../auth/auth.guard';
 import type { AuthenticatedRequest } from '../auth/auth.guard';
 import { ChatService } from './chat.service';
 import { ChatRequestBody } from './dto/chat.dto';
 import { BatchInferRequestDto } from './dto/batch-infer.dto';
+
+const E2EE_HEADER_NAMES = [
+  'x-signing-algo',
+  'x-client-pub-key',
+  'x-model-pub-key',
+  'x-e2ee-version',
+  'x-e2ee-nonce',
+  'x-e2ee-timestamp',
+] as const;
 
 @Controller('api')
 @UseGuards(AuthGuard)
@@ -25,7 +34,34 @@ export class ChatController {
   async chat(@Req() req: AuthenticatedRequest, @Res() res: Response) {
     const body = req.body as ChatRequestBody;
     const userId = req.user?.id;
+    const e2eeHeaders = this.extractE2EEHeaders(req);
 
+    if (e2eeHeaders) {
+      // Non-streaming E2EE path
+      try {
+        this.logger.debug(
+          `[chat:e2ee] user=${userId} model=${body.model ?? 'default'} messages=${body.messages?.length ?? 0}`,
+        );
+        const { json, responseHeaders } = await this.chatService.chatWithE2EE(
+          body,
+          e2eeHeaders,
+        );
+        for (const [k, v] of Object.entries(responseHeaders))
+          res.setHeader(k, v);
+        res.json(json);
+      } catch (error) {
+        this.logger.error(
+          `E2EE chat failed for user=${userId ?? 'unknown'}`,
+          error instanceof Error ? error.stack : error,
+        );
+        if (!res.headersSent) {
+          res.status(500).json({ error: 'Inference request failed' });
+        }
+      }
+      return;
+    }
+
+    // Existing streaming path
     try {
       this.logger.debug(
         `[chat] user=${userId} model=${body.model ?? 'default'} messages=${body.messages?.length ?? 0}`,
@@ -118,5 +154,17 @@ export class ChatController {
     );
 
     return { results };
+  }
+
+  private extractE2EEHeaders(req: Request): Record<string, string> | null {
+    const version = req.headers['x-e2ee-version'];
+    if (!version) return null;
+
+    const headers: Record<string, string> = {};
+    for (const name of E2EE_HEADER_NAMES) {
+      const value = req.headers[name];
+      if (typeof value === 'string') headers[name] = value;
+    }
+    return headers;
   }
 }

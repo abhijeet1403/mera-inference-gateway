@@ -71,6 +71,45 @@ export class ChatService {
     return { stream: nodeStream, contentType };
   }
 
+  /**
+   * Non-streaming E2EE chat completion.
+   * Forwards client-provided E2EE headers to RedPill and returns the
+   * encrypted response along with E2EE response headers.
+   */
+  async chatWithE2EE(
+    body: ChatRequestBody,
+    e2eeHeaders: Record<string, string>,
+  ): Promise<{ json: unknown; responseHeaders: Record<string, string> }> {
+    const payload = {
+      ...body,
+      model: body.model ?? this.defaultModel,
+      stream: false,
+    };
+
+    const response = await fetch(`${REDPILL_BASE_URL}/chat/completions`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${this.apiKey}`,
+        ...e2eeHeaders,
+      },
+      body: JSON.stringify(payload),
+    });
+
+    if (!response.ok) {
+      const errorBody = await response.text();
+      throw new Error(`RedPill API error (${response.status}): ${errorBody}`);
+    }
+
+    const respHeaders: Record<string, string> = {};
+    for (const name of ['x-e2ee-applied', 'x-e2ee-version', 'x-e2ee-algo']) {
+      const val = response.headers.get(name);
+      if (val) respHeaders[name] = val;
+    }
+
+    return { json: await response.json(), responseHeaders: respHeaders };
+  }
+
   /** Generate text (non-streaming) via RedPill AI's chat completions endpoint. */
   async generateTextResponse(params: {
     system: string;
