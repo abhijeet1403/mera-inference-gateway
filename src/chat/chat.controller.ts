@@ -14,14 +14,15 @@ import { ChatService } from './chat.service';
 import { ChatRequestBody } from './dto/chat.dto';
 import { BatchInferRequestDto } from './dto/batch-infer.dto';
 
-const E2EE_HEADER_NAMES = [
-  'x-signing-algo',
-  'x-client-pub-key',
-  'x-model-pub-key',
-  'x-e2ee-version',
-  'x-e2ee-nonce',
-  'x-e2ee-timestamp',
-] as const;
+/** Map Express-normalized (lowercase) header names → canonical case for RedPill API. */
+const E2EE_HEADER_MAP: Record<string, string> = {
+  'x-signing-algo': 'X-Signing-Algo',
+  'x-client-pub-key': 'X-Client-Pub-Key',
+  'x-model-pub-key': 'X-Model-Pub-Key',
+  'x-e2ee-version': 'X-E2EE-Version',
+  'x-e2ee-nonce': 'X-E2EE-Nonce',
+  'x-e2ee-timestamp': 'X-E2EE-Timestamp',
+};
 
 @Controller('api')
 @UseGuards(AuthGuard)
@@ -39,9 +40,6 @@ export class ChatController {
     if (e2eeHeaders) {
       // Non-streaming E2EE path
       try {
-        this.logger.debug(
-          `[chat:e2ee] user=${userId} model=${body.model ?? 'default'} messages=${body.messages?.length ?? 0}`,
-        );
         const { json, responseHeaders } = await this.chatService.chatWithE2EE(
           body,
           e2eeHeaders,
@@ -61,13 +59,26 @@ export class ChatController {
       return;
     }
 
-    // Existing streaming path
-    try {
-      this.logger.debug(
-        `[chat] user=${userId} model=${body.model ?? 'default'} messages=${body.messages?.length ?? 0}`,
-      );
-      const startTime = Date.now();
+    // Non-E2EE path — streaming or non-streaming based on body.stream
+    if (body.stream === false) {
+      // Non-streaming plaintext path (used by scoring/completion calls)
+      try {
+        const json = await this.chatService.chatNonStreaming(body);
+        res.json(json);
+      } catch (error) {
+        this.logger.error(
+          `Chat (non-streaming) failed for user=${userId ?? 'unknown'}`,
+          error instanceof Error ? error.stack : error,
+        );
+        if (!res.headersSent) {
+          res.status(500).json({ error: 'Inference request failed' });
+        }
+      }
+      return;
+    }
 
+    // Streaming path
+    try {
       const { stream, contentType } = await this.chatService.streamChat(body);
 
       // SSE headers for streaming — Content-Encoding: none is critical
@@ -78,12 +89,6 @@ export class ChatController {
       res.setHeader('Connection', 'keep-alive');
 
       stream.pipe(res);
-
-      stream.on('end', () => {
-        this.logger.debug(
-          `[chat] user=${userId} completed in ${Date.now() - startTime}ms`,
-        );
-      });
 
       stream.on('error', (err) => {
         this.logger.error(
@@ -111,16 +116,6 @@ export class ChatController {
     @Req() req: AuthenticatedRequest,
     @Body() body: BatchInferRequestDto,
   ) {
-    const userId = req.user?.id;
-    const totalPrompts = body.batches.reduce(
-      (sum, b) => sum + b.prompts.length,
-      0,
-    );
-    this.logger.debug(
-      `[batch] user=${userId} batches=${body.batches.length} prompts=${totalPrompts}`,
-    );
-    const startTime = Date.now();
-
     const results = await Promise.all(
       body.batches.flatMap((batch) =>
         batch.prompts.map(async (userPrompt) => {
@@ -133,24 +128,15 @@ export class ChatController {
               model: batch.model,
             });
             return { id: userPrompt.id, output: text, error: null };
-          } catch (error) {
-            this.logger.error(
-              `Batch infer failed id=${userPrompt.id} user=${userId ?? 'unknown'}`,
-              error instanceof Error ? error.stack : error,
-            );
+          } catch {
             return {
               id: userPrompt.id,
               output: null,
-              error: error instanceof Error ? error.message : 'Unknown error',
+              error: 'Inference failed',
             };
           }
         }),
       ),
-    );
-
-    const errors = results.filter((r) => r.error).length;
-    this.logger.debug(
-      `[batch] user=${userId} completed in ${Date.now() - startTime}ms prompts=${totalPrompts} errors=${errors}`,
     );
 
     return { results };
@@ -161,9 +147,9 @@ export class ChatController {
     if (!version) return null;
 
     const headers: Record<string, string> = {};
-    for (const name of E2EE_HEADER_NAMES) {
-      const value = req.headers[name];
-      if (typeof value === 'string') headers[name] = value;
+    for (const [lower, canonical] of Object.entries(E2EE_HEADER_MAP)) {
+      const value = req.headers[lower];
+      if (typeof value === 'string') headers[canonical] = value;
     }
     return headers;
   }

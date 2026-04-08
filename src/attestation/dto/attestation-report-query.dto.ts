@@ -16,4 +16,8 @@ export class AttestationReportQueryDto {
   @IsOptional()
   @IsString()
   signing_address?: string;
+
+  @IsOptional()
+  @IsString()
+  signing_algo?: string;
 }

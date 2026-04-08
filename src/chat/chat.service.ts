@@ -110,6 +110,44 @@ export class ChatService {
     return { json: await response.json(), responseHeaders: respHeaders };
   }
 
+  /**
+   * Non-streaming chat completion without E2EE.
+   * Used when the client sends stream=false but no E2EE headers.
+   */
+  async chatNonStreaming(body: ChatRequestBody): Promise<unknown> {
+    const payload = {
+      ...body,
+      model: body.model ?? this.defaultModel,
+      stream: false,
+    };
+
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 120_000);
+
+    try {
+      const response = await fetch(`${REDPILL_BASE_URL}/chat/completions`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${this.apiKey}`,
+        },
+        body: JSON.stringify(payload),
+        signal: controller.signal,
+      });
+
+      if (!response.ok) {
+        const errorBody = await response.text();
+        throw new Error(
+          `RedPill API error (${response.status}): ${errorBody}`,
+        );
+      }
+
+      return response.json();
+    } finally {
+      clearTimeout(timeout);
+    }
+  }
+
   /** Generate text (non-streaming) via RedPill AI's chat completions endpoint. */
   async generateTextResponse(params: {
     system: string;

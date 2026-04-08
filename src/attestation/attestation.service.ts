@@ -28,6 +28,8 @@ export class AttestationService {
     if (query.nonce) params.set('nonce', query.nonce);
     if (query.signing_address)
       params.set('signing_address', query.signing_address);
+    if (query.signing_algo)
+      params.set('signing_algo', query.signing_algo);
 
     const url = `${REDPILL_BASE_URL}/attestation/report?${params.toString()}`;
     this.logger.debug(`Fetching attestation report: model=${model}`);

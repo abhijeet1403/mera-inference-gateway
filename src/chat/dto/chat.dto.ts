@@ -26,5 +26,10 @@ export interface ChatRequestBody {
   tool_choice?: 'auto' | 'none' | 'required';
   temperature?: number;
   max_tokens?: number;
+  max_completion_tokens?: number;
+  top_p?: number;
+  n?: number;
+  presence_penalty?: number;
+  frequency_penalty?: number;
   stream?: boolean;
 }
