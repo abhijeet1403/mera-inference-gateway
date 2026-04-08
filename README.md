@@ -29,6 +29,44 @@ Streaming chat completions (SSE). Accepts OpenAI-compatible request format with 
 
 **Response:** Server-Sent Events stream
 
+#### E2EE mode
+
+When E2EE headers are present, the endpoint switches to **non-streaming** mode (required by RedPill's E2EE protocol). The gateway forwards the headers to RedPill and relays the E2EE response headers back to the client.
+
+**Additional E2EE headers (all forwarded to RedPill):**
+
+| Header | Required | Description |
+|--------|----------|-------------|
+| `X-E2EE-Version` | Yes | Protocol version (`1` or `2`, v2 recommended). Presence of this header triggers the E2EE path. |
+| `X-Signing-Algo` | Yes | `ecdsa` or `ed25519` |
+| `X-Client-Pub-Key` | Yes | Client ephemeral public key (hex) |
+| `X-Model-Pub-Key` | Yes | Model public key from attestation (hex) |
+| `X-E2EE-Nonce` | v2 | Unique value (>=16 chars, required for v2) |
+| `X-E2EE-Timestamp` | v2 | Unix seconds (required for v2) |
+
+**E2EE response headers (returned to client):**
+- `X-E2EE-Applied` — `true` if E2EE was applied
+- `X-E2EE-Version` — protocol version used
+- `X-E2EE-Algo` — algorithm used
+
+**Response:** JSON (non-streaming) with encrypted `choices[*].message.content`
+
+### `GET /api/attestation/report`
+Fetches the TEE attestation report from RedPill, including the model's signing public key needed for E2EE encryption. The resolved model name is included in the response so the client can use it for Additional Authenticated Data (AAD).
+
+**Headers:**
+- `Authorization: Bearer <jwt-token>` (required)
+
+**Query parameters:**
+
+| Parameter | Required | Default | Description |
+|-----------|----------|---------|-------------|
+| `model` | No | `DEFAULT_MODEL` | Model ID (e.g. `phala/qwen-2.5-7b-instruct`) |
+| `nonce` | No | — | 32-byte hex string (64 chars) for replay prevention |
+| `signing_address` | No | — | Filter for multi-server setups |
+
+**Response:** RedPill attestation report JSON with an additional `model` field containing the resolved model name. Key fields include `signing_public_key`, `signing_address`, `signing_algo`, `intel_quote`, and `nvidia_payload`.
+
 ### `POST /api/batch-infer`
 Batch non-streaming inference. Up to 10 batches with 50 prompts each.
 
