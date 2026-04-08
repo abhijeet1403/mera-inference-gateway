@@ -63,7 +63,6 @@ The gateway is intentionally ignorant of message content. `ChatRequestBody.messa
 | `RED_PILL_API_KEY` | Yes | — |
 | `AUTH_JWKS_URL` | Yes | — |
 | `PORT` | No | `8080` |
-| `DEFAULT_MODEL` | No | `phala/qwen3-vl-30b-a3b-instruct` |
 | `NODE_ENV` | No | `development` |
 | `CORS_ORIGIN` | No | `http://localhost:8081` |
 | `THROTTLE_TTL` | No | `60` |

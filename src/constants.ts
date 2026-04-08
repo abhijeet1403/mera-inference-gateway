@@ -1,4 +1,4 @@
-/** Default RedPill AI model — configurable via DEFAULT_MODEL env var */
+/** Default RedPill AI model — single source of truth for model selection */
 export const DEFAULT_MODEL = 'qwen/qwen3-30b-a3b-instruct-2507';
 
 /** Default temperature for LLM inference */

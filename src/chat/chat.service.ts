@@ -21,10 +21,7 @@ export class ChatService {
   private readonly apiKey: string;
 
   constructor(private configService: ConfigService) {
-    this.defaultModel = this.configService.get<string>(
-      'DEFAULT_MODEL',
-      DEFAULT_MODEL,
-    );
+    this.defaultModel = DEFAULT_MODEL;
     this.apiKey = this.configService.get<string>('RED_PILL_API_KEY', '');
     if (!this.apiKey) {
       throw new Error('RED_PILL_API_KEY environment variable is not set');
