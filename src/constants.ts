@@ -1,9 +1,3 @@
-/** Default RedPill AI model — single source of truth for model selection */
-export const DEFAULT_MODEL = 'qwen/qwen3-30b-a3b-instruct-2507';
-
-/** Default temperature for LLM inference */
-export const DEFAULT_LLM_TEMPERATURE = 0.1;
-
 /** RedPill AI API base URL */
 export const REDPILL_BASE_URL = 'https://api.redpill.ai/v1';
 
