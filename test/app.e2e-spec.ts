@@ -50,24 +50,17 @@ describe('InferenceGateway (e2e)', () => {
       .expect({ status: 'ok' });
   });
 
-  it('POST /api/chat without auth should return 401', () => {
+  it('POST /v1/chat/completions without auth should return 401', () => {
     return request(app.getHttpServer())
-      .post('/api/chat')
+      .post('/v1/chat/completions')
       .send({ messages: [{ role: 'user', content: 'hello' }] })
       .expect(401);
   });
 
-  it('POST /api/batch-infer without auth should return 401', () => {
+  it('POST /v1/chat/completions/batch without auth should return 401', () => {
     return request(app.getHttpServer())
-      .post('/api/batch-infer')
-      .send({
-        batches: [
-          {
-            system: 'test',
-            prompts: [{ id: '1', prompt: 'hello' }],
-          },
-        ],
-      })
+      .post('/v1/chat/completions/batch')
+      .send({ requests: [{ messages: [{ role: 'user', content: 'hello' }] }] })
       .expect(401);
   });
 });

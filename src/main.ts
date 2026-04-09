@@ -8,15 +8,10 @@ import { ConfigService } from '@nestjs/config';
 import { Logger } from 'nestjs-pino';
 import { HttpExceptionFilter } from './filters/http-exception.filter';
 import { AppModule } from './app.module';
-import { json } from 'express';
-
 async function bootstrap() {
   const app = await NestFactory.create(AppModule, {
     bufferLogs: true,
   });
-
-  // Increase body size limit for batch-infer payloads
-  app.use(json({ limit: '5mb' }));
 
   const logger = app.get(Logger);
   app.useLogger(logger);
