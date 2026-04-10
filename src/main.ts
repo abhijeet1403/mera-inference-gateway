@@ -2,6 +2,7 @@ import * as dotenv from 'dotenv';
 dotenv.config();
 
 import helmet from 'helmet';
+import { json, urlencoded } from 'express';
 import { NestFactory } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
@@ -15,6 +16,9 @@ async function bootstrap() {
 
   const logger = app.get(Logger);
   app.useLogger(logger);
+
+  app.use(json({ limit: '10mb' }));
+  app.use(urlencoded({ extended: true, limit: '10mb' }));
 
   app.enableShutdownHooks();
 
