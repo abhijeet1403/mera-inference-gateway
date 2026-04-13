@@ -33,7 +33,7 @@ export class AuthGuard implements CanActivate, OnModuleInit {
 
   constructor(private configService: ConfigService) {}
 
-  async onModuleInit() {
+  onModuleInit() {
     const authJwksUrl = this.configService.get<string>('AUTH_JWKS_URL', '');
     if (!authJwksUrl) {
       throw new Error('AUTH_JWKS_URL environment variable is not set');
@@ -42,7 +42,13 @@ export class AuthGuard implements CanActivate, OnModuleInit {
     const jwksUrl = new URL(authJwksUrl);
     this.jwks = createRemoteJWKSet(jwksUrl);
 
-    // Verify the JWKS endpoint is reachable at startup with exponential backoff (up to 10 minutes)
+    void this.verifyJwksReachability(jwksUrl, authJwksUrl);
+  }
+
+  private async verifyJwksReachability(
+    jwksUrl: URL,
+    authJwksUrl: string,
+  ): Promise<void> {
     const maxElapsedMs = 10 * 60 * 1000;
     const start = Date.now();
     let delayMs = 1000;
@@ -56,9 +62,10 @@ export class AuthGuard implements CanActivate, OnModuleInit {
       } catch (error) {
         const elapsed = Date.now() - start;
         if (elapsed + delayMs > maxElapsedMs) {
-          throw new Error(
-            `JWKS endpoint ${authJwksUrl} unreachable after ${Math.round(elapsed / 1000)}s: ${error instanceof Error ? error.message : String(error)}`,
+          this.logger.error(
+            `JWKS endpoint ${authJwksUrl} unreachable after ${Math.round(elapsed / 1000)}s — giving up background verification: ${error instanceof Error ? error.message : String(error)}`,
           );
+          return;
         }
         this.logger.warn(
           `JWKS endpoint unreachable, retrying in ${delayMs / 1000}s...`,
