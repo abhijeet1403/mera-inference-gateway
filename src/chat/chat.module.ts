@@ -1,9 +1,10 @@
 import { Module } from '@nestjs/common';
 import { CompletionsController } from './completions.controller';
 import { ChatService } from './chat.service';
+import { InferenceQueueService } from './inference-queue.service';
 
 @Module({
   controllers: [CompletionsController],
-  providers: [ChatService],
+  providers: [ChatService, InferenceQueueService],
 })
 export class ChatModule {}

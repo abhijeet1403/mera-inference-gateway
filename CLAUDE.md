@@ -67,6 +67,8 @@ The gateway is intentionally ignorant of message content. `ChatRequestBody.messa
 | `CORS_ORIGIN` | No | `http://localhost:8081` |
 | `THROTTLE_TTL` | No | `60` |
 | `THROTTLE_LIMIT` | No | `30` |
+| `INFERENCE_MAX_CONCURRENCY` | No | `8` |
+| `INFERENCE_MAX_QUEUE_DEPTH` | No | `200` |
 | `LOG_LEVEL` | No | `debug` / `warn` |
 
 ## Deployment

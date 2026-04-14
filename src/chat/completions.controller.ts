@@ -4,6 +4,7 @@ import { Readable } from 'stream';
 import { AuthGuard } from '../auth/auth.guard';
 import type { AuthenticatedRequest } from '../auth/auth.guard';
 import { ChatService } from './chat.service';
+import { InferenceQueueService } from './inference-queue.service';
 
 /** E2EE v1 request headers to forward to RedPill (lowercase → canonical). */
 const E2EE_REQUEST_HEADERS: Record<string, string> = {
@@ -18,12 +19,26 @@ const BLOCKED_RESPONSE_HEADERS = new Set([
   'transfer-encoding',
 ]);
 
+interface UpstreamCompletion {
+  id?: string;
+  choices?: Array<{
+    finish_reason?: string;
+    message?: {
+      content?: string;
+      tool_calls?: unknown[];
+    };
+  }>;
+}
+
 @Controller('v1')
 @UseGuards(AuthGuard)
 export class CompletionsController {
   private readonly logger = new Logger(CompletionsController.name);
 
-  constructor(private readonly chatService: ChatService) {}
+  constructor(
+    private readonly chatService: ChatService,
+    private readonly queue: InferenceQueueService,
+  ) {}
 
   @Post('chat/completions')
   async chatCompletions(
@@ -94,57 +109,78 @@ export class CompletionsController {
       return;
     }
 
+    if (!this.queue.canAccept(requests.length)) {
+      const snap = this.queue.snapshot();
+      this.logger.warn(
+        `Batch rejected (queue full) user=${userId ?? 'unknown'} ` +
+          `incoming=${requests.length} active=${snap.active} waiting=${snap.waiting}`,
+      );
+      res.status(503).json({ error: 'Inference queue full, retry later' });
+      return;
+    }
+
     const e2eeHeaders = this.extractE2EEHeaders(req);
+    const snapOnEntry = this.queue.snapshot();
     this.logger.debug(
-      `Batch request user=${userId ?? 'unknown'} items=${requests.length} e2eeHeaders=${JSON.stringify(e2eeHeaders)}`,
+      `Batch request user=${userId ?? 'unknown'} items=${requests.length} ` +
+        `queueActive=${snapOnEntry.active} queueWaiting=${snapOnEntry.waiting} ` +
+        `e2eeHeaders=${JSON.stringify(e2eeHeaders)}`,
     );
 
     const results = await Promise.all(
-      requests.map(async (input, index) => {
-        try {
-          this.logger.debug(
-            `Batch[${index}] sending to upstream model=${(input as Record<string, unknown>)?.model ?? 'default'}`,
-          );
-          const upstream = await this.chatService.proxyChat(
-            input,
-            e2eeHeaders,
-          );
-
-          this.logger.debug(
-            `Batch[${index}] upstream status=${upstream.status}`,
-          );
-
-          if (!upstream.ok) {
-            const errorBody = await upstream.text();
-            this.logger.warn(
-              `Batch[${index}] upstream error status=${upstream.status} body=${errorBody}`,
+      requests.map((input, index) =>
+        this.queue.run(async () => {
+          try {
+            const inputModel =
+              typeof input === 'object' && input !== null
+                ? (input as { model?: unknown }).model
+                : undefined;
+            this.logger.debug(
+              `Batch[${index}] sending to upstream model=${
+                typeof inputModel === 'string' ? inputModel : 'default'
+              }`,
             );
-            return {
-              index,
-              error: `Upstream error (${upstream.status}): ${errorBody}`,
-            };
+            const upstream = await this.chatService.proxyChat(
+              input,
+              e2eeHeaders,
+            );
+
+            this.logger.debug(
+              `Batch[${index}] upstream status=${upstream.status}`,
+            );
+
+            if (!upstream.ok) {
+              const errorBody = await upstream.text();
+              this.logger.warn(
+                `Batch[${index}] upstream error status=${upstream.status} body=${errorBody}`,
+              );
+              return {
+                index,
+                error: `Upstream error (${upstream.status}): ${errorBody}`,
+              };
+            }
+
+            const json = (await upstream.json()) as UpstreamCompletion;
+            const choice = json.choices?.[0];
+            this.logger.debug(
+              `Batch[${index}] upstream response id=${json.id ?? 'unknown'} ` +
+                `finishReason=${choice?.finish_reason ?? 'unknown'} ` +
+                `hasContent=${!!choice?.message?.content} ` +
+                `contentLen=${choice?.message?.content?.length ?? 0} ` +
+                `hasToolCalls=${!!choice?.message?.tool_calls} ` +
+                `toolCallCount=${choice?.message?.tool_calls?.length ?? 0}`,
+            );
+
+            return { index, response: json };
+          } catch (error) {
+            this.logger.error(
+              `Batch[${index}] failed user=${userId ?? 'unknown'}`,
+              error instanceof Error ? error.stack : error,
+            );
+            return { index, error: 'Request failed' };
           }
-
-          const json = await upstream.json();
-          const choice = (json as any)?.choices?.[0];
-          this.logger.debug(
-            `Batch[${index}] upstream response id=${(json as any)?.id} ` +
-              `finishReason=${choice?.finish_reason} ` +
-              `hasContent=${!!choice?.message?.content} ` +
-              `contentLen=${choice?.message?.content?.length ?? 0} ` +
-              `hasToolCalls=${!!choice?.message?.tool_calls} ` +
-              `toolCallCount=${choice?.message?.tool_calls?.length ?? 0}`,
-          );
-
-          return { index, response: json };
-        } catch (error) {
-          this.logger.error(
-            `Batch[${index}] failed user=${userId ?? 'unknown'}`,
-            error instanceof Error ? error.stack : error,
-          );
-          return { index, error: 'Request failed' };
-        }
-      }),
+        }),
+      ),
     );
 
     this.logger.debug(
