@@ -60,6 +60,18 @@ export class CompletionsController {
         }
       });
 
+      // Non-2xx from RedPill: read full body, log it, then forward. Safe because
+      // errors are never streamed (content-length is set by upstream) and E2EE
+      // never applies to error envelopes.
+      if (!upstream.ok) {
+        const errorBody = await upstream.text();
+        this.logger.error(
+          `Upstream error user=${userId ?? 'unknown'} status=${upstream.status} body=${errorBody.slice(0, 2000)}`,
+        );
+        res.send(errorBody);
+        return;
+      }
+
       if (!upstream.body) {
         res.send(await upstream.text());
         return;
