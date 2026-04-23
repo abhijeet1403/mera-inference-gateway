@@ -6,5 +6,6 @@ import { InferenceQueueService } from './inference-queue.service';
 @Module({
   controllers: [CompletionsController],
   providers: [ChatService, InferenceQueueService],
+  exports: [ChatService],
 })
 export class ChatModule {}

@@ -6,6 +6,12 @@ import { LoggerModule } from 'nestjs-pino';
 import { ChatModule } from './chat/chat.module';
 import { AttestationModule } from './attestation/attestation.module';
 import { HealthController } from './health/health.controller';
+import { InferenceJobsModule } from './inference-jobs/inference-jobs.module';
+import { QueuesModule } from './queues/queues.module';
+import { NotificationsModule } from './notifications/notifications.module';
+import { DatabaseModule } from './database/database.module';
+import { BullBoardModule } from '@bull-board/nestjs';
+import { ExpressAdapter } from '@bull-board/express';
 
 /**
  * GCP Cloud Logging severity levels mapping.
@@ -100,8 +106,18 @@ const PINO_TO_GCP_SEVERITY: Record<number, string> = {
       ],
       inject: [ConfigService],
     }),
+    DatabaseModule,
+    // Mount Bull Board at /queues. Basic-auth middleware is applied in
+    // main.ts before this router handles any request, so the UI is protected.
+    BullBoardModule.forRoot({
+      route: '/queues',
+      adapter: ExpressAdapter,
+    }),
     ChatModule,
     AttestationModule,
+    NotificationsModule,
+    QueuesModule,
+    InferenceJobsModule,
   ],
   controllers: [HealthController],
   providers: [
