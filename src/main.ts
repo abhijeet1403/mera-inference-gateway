@@ -25,7 +25,6 @@ async function bootstrap() {
   app.use(json({ limit: bodyLimit }));
   app.use(urlencoded({ extended: true, limit: bodyLimit }));
 
-  // Response-side gzip. Skip the SSE streaming endpoint so event flushing works.
   app.use(
     compression({
       filter: (req: Request, res: Response) => {
