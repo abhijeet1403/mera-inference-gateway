@@ -22,8 +22,6 @@ async function bootstrap() {
   const configService = app.get(ConfigService);
   const bodyLimit = configService.get<string>('INFERENCE_BODY_LIMIT', '50mb');
 
-  // body-parser runs with inflate: true by default, so Content-Encoding: gzip
-  // request bodies decompress automatically before reaching controllers.
   app.use(json({ limit: bodyLimit }));
   app.use(urlencoded({ extended: true, limit: bodyLimit }));
 
