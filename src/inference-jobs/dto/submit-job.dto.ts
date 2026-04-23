@@ -3,6 +3,7 @@ import {
   ArrayMinSize,
   IsArray,
   IsDefined,
+  IsIn,
   IsObject,
   IsOptional,
   IsString,
@@ -29,7 +30,9 @@ export class InferenceRequestDto {
   body!: Record<string, unknown>;
 }
 
-/** E2EE headers forwarded to RedPill per request. Same session for all calls. */
+/** E2EE session — same headers used for every request in the batch.
+ *  `provider` is stored on the job so the processor picks the correct
+ *  upstream when replaying later. Never forwarded upstream. */
 export class E2EESessionDto {
   @IsOptional()
   @IsString()
@@ -42,6 +45,14 @@ export class E2EESessionDto {
   @IsOptional()
   @IsString()
   'X-Model-Pub-Key'?: string;
+
+  @IsOptional()
+  @IsString()
+  'X-Encryption-Version'?: string;
+
+  @IsOptional()
+  @IsIn(['redpill', 'nearai'])
+  provider?: 'redpill' | 'nearai';
 }
 
 export class SubmitJobDto {

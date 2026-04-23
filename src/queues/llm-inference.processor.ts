@@ -56,8 +56,13 @@ export class LlmInferenceProcessor extends WorkerHost {
     }
 
     const headers: Record<string, string> = {};
+    let provider: 'redpill' | 'nearai' = 'redpill';
     if (doc.e2eeSession) {
       for (const [k, v] of Object.entries(doc.e2eeSession)) {
+        if (k === 'provider') {
+          if (v === 'redpill' || v === 'nearai') provider = v;
+          continue; // never forward upstream
+        }
         if (typeof v === 'string') headers[k] = v;
       }
     }
@@ -67,7 +72,11 @@ export class LlmInferenceProcessor extends WorkerHost {
       | { id: string; ok: false; error: string };
 
     try {
-      const upstream = await this.chat.proxyChat(request.body, headers);
+      const upstream = await this.chat.proxyChat(
+        provider,
+        request.body,
+        headers,
+      );
       if (!upstream.ok) {
         const body = await upstream.text();
         this.logger.warn(

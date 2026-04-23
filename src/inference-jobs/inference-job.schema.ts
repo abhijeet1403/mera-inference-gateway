@@ -43,6 +43,15 @@ class E2EESessionHeaders {
 
   @Prop({ type: String })
   'X-Model-Pub-Key'?: string;
+
+  /** NEAR AI v2 marker — forwarded verbatim to the upstream. */
+  @Prop({ type: String })
+  'X-Encryption-Version'?: string;
+
+  /** Which upstream to replay to: 'redpill' | 'nearai'. Stored separately
+   *  from the forwardable headers so it is never leaked upstream. */
+  @Prop({ type: String, enum: ['redpill', 'nearai'], default: 'redpill' })
+  provider?: 'redpill' | 'nearai';
 }
 const E2EESessionHeadersSchema = SchemaFactory.createForClass(E2EESessionHeaders);
 
