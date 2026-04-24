@@ -42,7 +42,7 @@ export class FinalizeJobProcessor extends WorkerHost {
       .findOneAndUpdate(
         { _id: new Types.ObjectId(jobId) },
         { $set: { status: 'completed', completedAt: new Date() } },
-        { new: true, projection: { results: 1, requests: 1 } },
+        { returnDocument: 'after', projection: { results: 1, requests: 1 } },
       )
       .lean()
       .exec();

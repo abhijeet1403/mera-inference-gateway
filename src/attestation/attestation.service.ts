@@ -50,10 +50,25 @@ export class AttestationService {
     const url = `${cfg.baseUrl}/attestation/report${cleanedQs ? `?${cleanedQs}` : ''}`;
     this.logger.debug(`Proxying attestation report (${provider}): ${url}`);
 
-    return fetch(url, {
-      method: 'GET',
-      headers: { Authorization: `Bearer ${cfg.apiKey}` },
-    });
+    const controller = new AbortController();
+    const timeoutMs = 30_000;
+    const timeout = setTimeout(() => controller.abort(), timeoutMs);
+    try {
+      return await fetch(url, {
+        method: 'GET',
+        headers: { Authorization: `Bearer ${cfg.apiKey}` },
+        signal: controller.signal,
+      });
+    } catch (error) {
+      if ((error as Error)?.name === 'AbortError') {
+        throw new Error(
+          `Upstream attestation timeout after ${timeoutMs}ms (provider=${provider}, url=${url})`,
+        );
+      }
+      throw error;
+    } finally {
+      clearTimeout(timeout);
+    }
   }
 }
 

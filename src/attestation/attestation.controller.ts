@@ -21,11 +21,13 @@ export class AttestationController {
     @Req() req: Request,
     @Res() res: Response,
   ) {
+    const provider = resolveProvider(providerQ);
+    const queryString = req.url.split('?')[1] ?? '';
+    const startedAt = Date.now();
     try {
-      const provider = resolveProvider(providerQ);
       const upstream = await this.attestationService.proxyAttestationReport(
         provider,
-        req.url.split('?')[1] ?? '',
+        queryString,
       );
 
       res.status(upstream.status);
@@ -34,12 +36,28 @@ export class AttestationController {
       const body = await upstream.text();
       res.send(body);
     } catch (error) {
+      const elapsedMs = Date.now() - startedAt;
+      const err = error as
+        | (Error & { code?: string; cause?: { code?: string } })
+        | undefined;
       this.logger.error(
-        'Attestation proxy failed',
-        error instanceof Error ? error.stack : error,
+        {
+          msg: 'Attestation proxy failed',
+          provider,
+          queryString,
+          elapsedMs,
+          errorName: err?.name,
+          errorMessage: err?.message,
+          errorCode: err?.code ?? err?.cause?.code,
+        },
+        err?.stack,
       );
       if (!res.headersSent) {
-        res.status(502).json({ error: 'Upstream request failed' });
+        res.status(502).json({
+          error: 'Upstream request failed',
+          provider,
+          reason: err?.message ?? 'unknown',
+        });
       }
     }
   }
