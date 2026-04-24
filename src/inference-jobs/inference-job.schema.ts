@@ -83,6 +83,15 @@ export class InferenceJob {
   @Prop({ type: [InferenceRequestSchema], default: [] })
   requests!: InferenceRequest[];
 
+  /**
+   * E2EE-encrypted system message applied to every request in this job.
+   * The processor prepends `{role:'system', content: sharedSystem}` to each
+   * request's `messages` array before forwarding to the upstream provider.
+   * Null for legacy jobs that embed the system message inside each request.
+   */
+  @Prop({ type: String, default: null })
+  sharedSystem!: string | null;
+
   @Prop({ type: [InferenceResultSchema], default: [] })
   results!: InferenceResult[];
 

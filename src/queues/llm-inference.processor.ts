@@ -55,6 +55,17 @@ export class LlmInferenceProcessor extends WorkerHost {
       );
     }
 
+    // If the job carries a sharedSystem ciphertext, prepend it as the first
+    // `messages` entry before forwarding. Clients opt into this by sending
+    // per-request messages without a system role and setting `sharedSystem`
+    // once on the job — saves repeating the (identical) encrypted system
+    // prompt across every request. Legacy jobs leave sharedSystem null and
+    // embed the system inside each request's messages[] unchanged.
+    const forwardBody = maybePrependSharedSystem(
+      request.body,
+      doc.sharedSystem,
+    );
+
     const headers: Record<string, string> = {};
     let provider: 'redpill' | 'nearai' = 'redpill';
     if (doc.e2eeSession) {
@@ -74,7 +85,7 @@ export class LlmInferenceProcessor extends WorkerHost {
     try {
       const upstream = await this.chat.proxyChat(
         provider,
-        request.body,
+        forwardBody,
         headers,
       );
       if (!upstream.ok) {
@@ -114,4 +125,34 @@ export class LlmInferenceProcessor extends WorkerHost {
 
     return { id: result.id, ok: result.ok };
   }
+}
+
+interface ChatCompletionMessage {
+  role: string;
+  content: unknown;
+}
+
+/**
+ * Return a new chat-completions body with `sharedSystem` prepended to its
+ * `messages` array as a system-role message. Returns the body untouched when
+ * `sharedSystem` is null/empty or when `body.messages` is missing / not an
+ * array (malformed request — let upstream reject it with a clean error).
+ * Never mutates the original body; the returned object is a shallow clone
+ * with a fresh messages array.
+ */
+function maybePrependSharedSystem(
+  body: Record<string, unknown>,
+  sharedSystem: string | null | undefined,
+): Record<string, unknown> {
+  if (!sharedSystem) return body;
+  const messages = (body as { messages?: unknown }).messages;
+  if (!Array.isArray(messages)) return body;
+  const systemMessage: ChatCompletionMessage = {
+    role: 'system',
+    content: sharedSystem,
+  };
+  return {
+    ...body,
+    messages: [systemMessage, ...(messages as ChatCompletionMessage[])],
+  };
 }

@@ -32,6 +32,7 @@ export class InferenceJobsService {
       e2eeSession: dto.e2eeSession ?? null,
       status: 'pending',
       requests: dto.requests.map((r) => ({ id: r.id, body: r.body })),
+      sharedSystem: dto.sharedSystem ?? null,
       results: [],
       createdAt: now,
       completedAt: null,

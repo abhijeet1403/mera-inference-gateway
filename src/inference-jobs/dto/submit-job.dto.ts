@@ -8,11 +8,19 @@ import {
   IsOptional,
   IsString,
   Matches,
+  MaxLength,
   ValidateNested,
 } from 'class-validator';
 import { Type } from 'class-transformer';
 
 export const MAX_REQUESTS_PER_JOB = 5000;
+
+/**
+ * Upper bound on the shared system ciphertext. The plaintext scoring /
+ * reason system prompts are ~8 KB; ciphertext inflates modestly. 64 KB is
+ * generous and bounds the request footprint defensively.
+ */
+export const MAX_SHARED_SYSTEM_BYTES = 64 * 1024;
 
 /**
  * One inference call inside a job. Shape mirrors an OpenAI chat.completions
@@ -67,6 +75,20 @@ export class SubmitJobDto {
   @ValidateNested()
   @Type(() => E2EESessionDto)
   e2eeSession?: E2EESessionDto;
+
+  /**
+   * Optional E2EE-encrypted system message shared across every request in
+   * the job. When set, the processor prepends a `{role:'system', content:
+   * <sharedSystem>}` entry to each proxied request's `messages` array
+   * before forwarding upstream. Lets clients send the system prompt once
+   * instead of duplicating it per-request (saves ~37–44% of raw body for
+   * the mera-app scoring / reason batches). The gateway never reads the
+   * ciphertext.
+   */
+  @IsOptional()
+  @IsString()
+  @MaxLength(MAX_SHARED_SYSTEM_BYTES)
+  sharedSystem?: string;
 
   @IsArray()
   @ArrayMinSize(1)
