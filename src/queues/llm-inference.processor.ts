@@ -1,5 +1,4 @@
 import { Logger } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
 import { Processor, WorkerHost } from '@nestjs/bullmq';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
@@ -21,21 +20,20 @@ export interface LlmInferenceResult {
   ok: boolean;
 }
 
-@Processor(LLM_INFERENCE_QUEUE)
+const LLM_INFERENCE_CONCURRENCY = Number(
+  process.env.LLM_INFERENCE_CONCURRENCY ?? 8,
+);
+
+@Processor(LLM_INFERENCE_QUEUE, { concurrency: LLM_INFERENCE_CONCURRENCY })
 export class LlmInferenceProcessor extends WorkerHost {
   private readonly logger = new Logger(LlmInferenceProcessor.name);
 
   constructor(
     private readonly chat: ChatService,
-    private readonly config: ConfigService,
     @InjectModel(InferenceJob.name)
     private readonly inferenceJobModel: Model<InferenceJobDocument>,
   ) {
     super();
-  }
-
-  get workerConcurrency(): number {
-    return this.config.get<number>('LLM_INFERENCE_CONCURRENCY', 4);
   }
 
   async process(job: Job<JobData>): Promise<LlmInferenceResult> {
