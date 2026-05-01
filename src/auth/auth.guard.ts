@@ -11,10 +11,18 @@ import type { Request } from 'express';
 import { createRemoteJWKSet, jwtVerify, errors as joseErrors } from 'jose';
 import type { JWTPayload, JWTVerifyGetKey } from 'jose';
 import { JWT_ISSUER } from '../constants';
+import {
+  CAPABILITY_TOKEN_PREFIX,
+  CapabilityClaims,
+  CapabilityTokenService,
+} from './capability-token.service';
 
 export interface AuthenticatedUser {
   id: string;
   subscriptionIsActive: boolean;
+  /** Set when this request authed with a capability token instead of a JWT.
+   *  Downstream handlers use it to enforce `rid` / scope restrictions. */
+  capability?: CapabilityClaims;
 }
 
 export interface AuthenticatedRequest extends Request {
@@ -31,7 +39,10 @@ export class AuthGuard implements CanActivate, OnModuleInit {
   private readonly logger = new Logger('AuthGuard');
   private jwks!: JWTVerifyGetKey;
 
-  constructor(private configService: ConfigService) {}
+  constructor(
+    private configService: ConfigService,
+    private capabilityTokens: CapabilityTokenService,
+  ) {}
 
   onModuleInit() {
     const authJwksUrl = this.configService.get<string>('AUTH_JWKS_URL', '');
@@ -82,6 +93,26 @@ export class AuthGuard implements CanActivate, OnModuleInit {
     const token = this.extractBearerToken(request);
     if (!token) {
       throw new UnauthorizedException('Authentication required');
+    }
+
+    // Capability-token path. Lets background callers (silent-push wakes,
+    // result fetch loops) authenticate without ever reading the keychain
+    // session JWT. Tokens are minted by InferenceJobsService on submit and
+    // carried by the client for the lifetime of the cycle.
+    if (token.startsWith(CAPABILITY_TOKEN_PREFIX)) {
+      const claims = this.capabilityTokens.verify(token);
+      if (!claims) {
+        throw new UnauthorizedException('Invalid or expired capability token');
+      }
+      request.user = {
+        id: claims.uid,
+        // Capability tokens are minted post-subscription-check at submit time;
+        // we trust the original gate held when the cycle started. The window
+        // is bounded by the token's 24h TTL.
+        subscriptionIsActive: true,
+        capability: claims,
+      };
+      return true;
     }
 
     try {

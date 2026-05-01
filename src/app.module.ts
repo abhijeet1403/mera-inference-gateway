@@ -3,6 +3,7 @@ import { APP_GUARD } from '@nestjs/core';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
 import { LoggerModule } from 'nestjs-pino';
+import { AuthModule } from './auth/auth.module';
 import { ChatModule } from './chat/chat.module';
 import { AttestationModule } from './attestation/attestation.module';
 import { HealthController } from './health/health.controller';
@@ -113,6 +114,7 @@ const PINO_TO_GCP_SEVERITY: Record<number, string> = {
       route: '/queues',
       adapter: ExpressAdapter,
     }),
+    AuthModule,
     ChatModule,
     AttestationModule,
     NotificationsModule,

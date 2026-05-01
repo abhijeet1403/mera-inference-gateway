@@ -43,7 +43,17 @@ export class InferenceJobsController {
   async submit(
     @Req() req: AuthenticatedRequest,
     @Body() dto: SubmitJobDto,
-  ): Promise<{ requestId: string }> {
+  ): Promise<{ requestId: string; capabilityToken: string }> {
+    // Capability-token authed callers (phase-2 chain from background) must
+    // hold the `jobs:submit-followup` scope. The original submit always
+    // happens with a JWT — no capability claims attached.
+    if (req.user.capability) {
+      if (!req.user.capability.scopes.includes('jobs:submit-followup')) {
+        throw new ForbiddenException(
+          'Capability token missing jobs:submit-followup scope',
+        );
+      }
+    }
     return this.jobs.submit(req.user.id, dto);
   }
 
@@ -55,6 +65,23 @@ export class InferenceJobsController {
   ): Promise<StreamableFile | { pending: true }> {
     if (!Types.ObjectId.isValid(requestId)) {
       throw new BadRequestException('Invalid requestId');
+    }
+
+    // Capability tokens are bound to a specific requestId. A token minted
+    // for cycle A must not be usable to read cycle B even if both belong to
+    // the same user — otherwise a leaked token's blast radius widens to
+    // every job in the user's 24h history.
+    if (req.user.capability) {
+      if (!req.user.capability.scopes.includes('results:read')) {
+        throw new ForbiddenException(
+          'Capability token missing results:read scope',
+        );
+      }
+      if (req.user.capability.rid !== requestId) {
+        throw new ForbiddenException(
+          'Capability token bound to a different requestId',
+        );
+      }
     }
 
     const doc = await this.inferenceJobModel

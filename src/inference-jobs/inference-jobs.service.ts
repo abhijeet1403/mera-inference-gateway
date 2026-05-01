@@ -7,6 +7,7 @@ import {
 } from './inference-job.schema';
 import { FlowService } from '../queues/flow.service';
 import type { SubmitJobDto } from './dto/submit-job.dto';
+import { CapabilityTokenService } from '../auth/capability-token.service';
 
 const DEFAULT_TTL_MS = 24 * 60 * 60 * 1000;
 
@@ -18,12 +19,13 @@ export class InferenceJobsService {
     @InjectModel(InferenceJob.name)
     private readonly inferenceJobModel: Model<InferenceJobDocument>,
     private readonly flow: FlowService,
+    private readonly capabilityTokens: CapabilityTokenService,
   ) {}
 
   async submit(
     userId: string,
     dto: SubmitJobDto,
-  ): Promise<{ requestId: string }> {
+  ): Promise<{ requestId: string; capabilityToken: string }> {
     const now = new Date();
 
     const doc = await this.inferenceJobModel.create({
@@ -46,10 +48,12 @@ export class InferenceJobsService {
       requestCount: dto.requests.length,
     });
 
+    const capabilityToken = this.capabilityTokens.mint({ userId, requestId });
+
     this.logger.log(
       `Submitted inference job requestId=${requestId} userId=${userId} total=${dto.requests.length}`,
     );
 
-    return { requestId };
+    return { requestId, capabilityToken };
   }
 }
