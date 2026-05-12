@@ -23,7 +23,8 @@ const DEFAULT_PROVIDER: ProviderName = 'redpill';
 
 function extractProvider(req: AuthenticatedRequest): ProviderName {
   const raw = req.headers[PROVIDER_HEADER];
-  const v = typeof raw === 'string' ? raw : Array.isArray(raw) ? raw[0] : undefined;
+  const v =
+    typeof raw === 'string' ? raw : Array.isArray(raw) ? raw[0] : undefined;
   return v === 'nearai' || v === 'redpill' ? v : DEFAULT_PROVIDER;
 }
 

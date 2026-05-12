@@ -69,7 +69,8 @@ export class LlmInferenceProcessor extends WorkerHost {
     if (doc.e2eeSession) {
       for (const [k, v] of Object.entries(doc.e2eeSession)) {
         if (k === 'provider') {
-          if (v === 'redpill' || v === 'nearai') provider = v;
+          if (v === 'redpill' || v === 'nearai')
+            provider = v as 'redpill' | 'nearai';
           continue; // never forward upstream
         }
         if (typeof v === 'string') headers[k] = v;

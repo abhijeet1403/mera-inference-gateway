@@ -44,8 +44,6 @@ export class FlowService {
       })),
     });
 
-    this.logger.log(
-      `Flow created jobId=${jobId} children=${requestCount}`,
-    );
+    this.logger.log(`Flow created jobId=${jobId} children=${requestCount}`);
   }
 }

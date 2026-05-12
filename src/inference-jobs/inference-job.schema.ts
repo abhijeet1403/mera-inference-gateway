@@ -53,7 +53,8 @@ class E2EESessionHeaders {
   @Prop({ type: String, enum: ['redpill', 'nearai'], default: 'redpill' })
   provider?: 'redpill' | 'nearai';
 }
-const E2EESessionHeadersSchema = SchemaFactory.createForClass(E2EESessionHeaders);
+const E2EESessionHeadersSchema =
+  SchemaFactory.createForClass(E2EESessionHeaders);
 
 export type InferenceJobStatus =
   | 'pending'

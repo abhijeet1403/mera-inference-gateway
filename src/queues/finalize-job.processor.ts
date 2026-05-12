@@ -55,11 +55,7 @@ export class FinalizeJobProcessor extends WorkerHost {
       `finalized jobId=${jobId} requests=${updated.requests.length} results=${updated.results.length}`,
     );
 
-    await this.notifyUserQueue.add(
-      'notify-user',
-      { jobId },
-      DEFAULT_JOB_OPTS,
-    );
+    await this.notifyUserQueue.add('notify-user', { jobId }, DEFAULT_JOB_OPTS);
 
     return { jobId };
   }

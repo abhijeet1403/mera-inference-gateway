@@ -46,7 +46,9 @@ export class CapabilityTokenService implements OnModuleInit {
     }
     this.secret = Buffer.from(hex, 'hex');
     if (this.secret.length < 16) {
-      throw new Error('INFERENCE_CAPABILITY_SECRET must decode to at least 16 bytes');
+      throw new Error(
+        'INFERENCE_CAPABILITY_SECRET must decode to at least 16 bytes',
+      );
     }
   }
 
@@ -77,7 +79,9 @@ export class CapabilityTokenService implements OnModuleInit {
 
     let claims: CapabilityClaims;
     try {
-      claims = JSON.parse(b64urlDecode(payload).toString('utf8')) as CapabilityClaims;
+      claims = JSON.parse(
+        b64urlDecode(payload).toString('utf8'),
+      ) as CapabilityClaims;
     } catch {
       return null;
     }

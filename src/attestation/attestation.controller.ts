@@ -1,4 +1,12 @@
-import { Controller, Get, Logger, Query, Req, Res, UseGuards } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Logger,
+  Query,
+  Req,
+  Res,
+  UseGuards,
+} from '@nestjs/common';
 import type { Request, Response } from 'express';
 import { AuthGuard } from '../auth/auth.guard';
 import type { ProviderName } from '../constants';

@@ -46,8 +46,14 @@ async function bootstrap() {
   // registered by BullBoardModule in app.module.ts; this middleware runs
   // ahead of it. Credentials come from Secret Manager (shared with the
   // mera-bull-board service).
-  const bullBoardUser = configService.get<string>('BULLBOARD_ADMIN_USERNAME', '');
-  const bullBoardPass = configService.get<string>('BULLBOARD_ADMIN_PASSWORD', '');
+  const bullBoardUser = configService.get<string>(
+    'BULLBOARD_ADMIN_USERNAME',
+    '',
+  );
+  const bullBoardPass = configService.get<string>(
+    'BULLBOARD_ADMIN_PASSWORD',
+    '',
+  );
   if (bullBoardUser && bullBoardPass) {
     app.use(
       '/queues',
@@ -60,7 +66,9 @@ async function bootstrap() {
   } else {
     // Refuse the route entirely if creds aren't configured. Fail-closed: we
     // never want bull-board exposed unauthenticated.
-    app.use('/queues', (_req, res) => res.status(503).send('Bull Board disabled'));
+    app.use('/queues', (_req: Request, res: Response) =>
+      res.status(503).send('Bull Board disabled'),
+    );
   }
 
   app.useGlobalFilters(new HttpExceptionFilter(isProduction));

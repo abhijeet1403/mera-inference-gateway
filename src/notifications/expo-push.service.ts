@@ -19,7 +19,7 @@ export class ExpoPushService {
 
   async sendSilent(args: SilentPushArgs): Promise<void> {
     if (!Expo.isExpoPushToken(args.to)) {
-      this.logger.warn(`Invalid Expo push token, skipping: ${args.to}`);
+      this.logger.warn(`Invalid Expo push token, skipping: ${String(args.to)}`);
       return;
     }
 
