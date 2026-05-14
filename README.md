@@ -2,14 +2,14 @@
 
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
 
-Privacy-first E2EE inference gateway. Proxies encrypted chat requests to [RedPill AI](https://docs.redpill.ai) TEE-protected inference without ever accessing user data.
+Privacy-first E2EE inference gateway. Proxies encrypted chat requests to NEAR AI TEE-protected inference without ever accessing user data.
 
 ## Why This Exists
 
-**mera never sees your data.** Messages are end-to-end encrypted on the client using [RedPill's E2EE protocol](https://docs.redpill.ai/developers/guides/e2ee-encryption) before they reach this gateway. The gateway is an opaque pipe — it authenticates the request, then forwards the encrypted payload directly to RedPill AI running inside a Trusted Execution Environment (TEE). Decryption happens only inside the TEE.
+**mera never sees your data.** Messages are end-to-end encrypted on the client using NEAR AI's E2EE protocol before they reach this gateway. The gateway is an opaque pipe — it authenticates the request, then forwards the encrypted payload directly to NEAR AI running inside a Trusted Execution Environment (TEE). Decryption happens only inside the TEE.
 
 ```
-Client (E2EE encrypt) --> mera-inference-gateway --> RedPill AI (TEE decrypt + infer)
+Client (E2EE encrypt) --> mera-inference-gateway --> NEAR AI (TEE decrypt + infer)
          ^                    |                              |
          |                    | Auth only                    | Encrypted response
          |                    | (never reads                 |
@@ -31,9 +31,9 @@ Streaming chat completions (SSE). Accepts OpenAI-compatible request format with 
 
 #### E2EE mode
 
-When E2EE headers are present, the endpoint switches to **non-streaming** mode (required by RedPill's E2EE protocol). The gateway forwards the headers to RedPill and relays the E2EE response headers back to the client.
+When E2EE headers are present, the endpoint switches to **non-streaming** mode (required by NEAR AI's E2EE protocol). The gateway forwards the headers to NEAR AI and relays the E2EE response headers back to the client.
 
-**Additional E2EE headers (all forwarded to RedPill):**
+**Additional E2EE headers (all forwarded to NEAR AI):**
 
 | Header | Required | Description |
 |--------|----------|-------------|
@@ -52,7 +52,7 @@ When E2EE headers are present, the endpoint switches to **non-streaming** mode (
 **Response:** JSON (non-streaming) with encrypted `choices[*].message.content`
 
 ### `GET /api/attestation/report`
-Fetches the TEE attestation report from RedPill, including the model's signing public key needed for E2EE encryption. The resolved model name is included in the response so the client can use it for Additional Authenticated Data (AAD).
+Fetches the TEE attestation report from NEAR AI, including the model's signing public key needed for E2EE encryption. The resolved model name is included in the response so the client can use it for Additional Authenticated Data (AAD).
 
 **Headers:**
 - `Authorization: Bearer <jwt-token>` (required)
@@ -65,7 +65,7 @@ Fetches the TEE attestation report from RedPill, including the model's signing p
 | `nonce` | No | — | 32-byte hex string (64 chars) for replay prevention |
 | `signing_address` | No | — | Filter for multi-server setups |
 
-**Response:** RedPill attestation report JSON with an additional `model` field containing the resolved model name. Key fields include `signing_public_key`, `signing_address`, `signing_algo`, `intel_quote`, and `nvidia_payload`.
+**Response:** NEAR AI attestation report JSON with an additional `model` field containing the resolved model name. Key fields include `signing_public_key`, `signing_address`, `signing_algo`, `intel_quote`, and `nvidia_payload`.
 
 ### `POST /api/batch-infer`
 Batch non-streaming inference. Up to 10 batches with 50 prompts each.
@@ -81,7 +81,7 @@ Health check endpoint. Returns `{ "status": "ok" }`.
 ### Prerequisites
 
 - Node.js 20+
-- A [RedPill AI](https://docs.redpill.ai) API key
+- A NEAR AI API key
 - Access to your auth service's JWKS endpoint (for JWT verification)
 
 ### Installation
@@ -100,11 +100,11 @@ cp .env.example .env
 
 | Variable | Required | Default | Description |
 |----------|----------|---------|-------------|
-| `RED_PILL_API_KEY` | Yes | — | RedPill AI API key |
+| `NEAR_AI_API_KEY` | Yes | — | NEAR AI API key |
 | `AUTH_JWKS_URL` | Yes | — | Auth service JWKS endpoint URL (e.g. `https://auth.mera.news/api/auth/jwks`) |
 | `PORT` | No | `8080` | Server port |
 | `NODE_ENV` | No | `development` | Environment (`development` / `production`) |
-| `DEFAULT_MODEL` | No | `phala/qwen3-vl-30b-a3b-instruct` | Default inference model |
+| `DEFAULT_MODEL` | No | `Qwen/Qwen3-30B-A3B-Instruct-2507` | Default inference model |
 | `CORS_ORIGIN` | No | `http://localhost:8081` | Allowed CORS origin |
 | `THROTTLE_TTL` | No | `60` | Rate limit window in seconds |
 | `THROTTLE_LIMIT` | No | `30` | Max requests per window |
@@ -140,7 +140,7 @@ gcloud run deploy mera-inference-gateway \
   --image gcr.io/YOUR_PROJECT/mera-inference-gateway \
   --platform managed \
   --region us-central1 \
-  --set-env-vars "RED_PILL_API_KEY=your-key,NODE_ENV=production" \
+  --set-env-vars "NEAR_AI_API_KEY=your-key,NODE_ENV=production" \
   --set-env-vars "AUTH_JWKS_URL=https://auth.mera.news/api/auth/jwks" \
   --port 8080 \
   --allow-unauthenticated
@@ -150,7 +150,7 @@ gcloud run deploy mera-inference-gateway \
 
 The default model is configured in [`src/constants.ts`](src/constants.ts) and can be overridden via the `DEFAULT_MODEL` environment variable. Per-request model override is also supported via the `model` field in the request body.
 
-**Current default:** `phala/qwen3-vl-30b-a3b-instruct` (RedPill Qwen3 30B A3B)
+**Current default:** `Qwen/Qwen3-30B-A3B-Instruct-2507` (NEAR AI Qwen3 30B A3B)
 
 ## Security
 

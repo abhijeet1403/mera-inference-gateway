@@ -3,7 +3,6 @@ import {
   ArrayMinSize,
   IsArray,
   IsDefined,
-  IsIn,
   IsObject,
   IsOptional,
   IsString,
@@ -33,14 +32,13 @@ export class InferenceRequestDto {
   id!: string;
 
   @IsDefined()
-  // Body is passed through to RedPill. We validate that it's an object but
+  // Body is passed through upstream. We validate that it's an object but
   // don't constrain the shape — the upstream schema can evolve.
   body!: Record<string, unknown>;
 }
 
 /** E2EE session — same headers used for every request in the batch.
- *  `provider` is stored on the job so the processor picks the correct
- *  upstream when replaying later. Never forwarded upstream. */
+ *  Forwarded verbatim to the upstream when each request runs. */
 export class E2EESessionDto {
   @IsOptional()
   @IsString()
@@ -57,10 +55,6 @@ export class E2EESessionDto {
   @IsOptional()
   @IsString()
   'X-Encryption-Version'?: string;
-
-  @IsOptional()
-  @IsIn(['redpill', 'nearai'])
-  provider?: 'redpill' | 'nearai';
 }
 
 export class SubmitJobDto {

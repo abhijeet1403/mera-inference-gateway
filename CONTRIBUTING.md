@@ -21,7 +21,7 @@ npm install
 
 # Copy environment variables
 cp .env.example .env
-# Fill in RED_PILL_API_KEY and AUTH_JWKS_URL
+# Fill in NEAR_AI_API_KEY and AUTH_JWKS_URL
 
 # Start development server
 npm run start:dev
@@ -75,7 +75,7 @@ npm run test:cov    # Coverage report
 
 ## Architecture Notes
 
-This gateway is intentionally minimal. Its sole purpose is to authenticate requests and proxy encrypted payloads to RedPill AI. When contributing, keep in mind:
+This gateway is intentionally minimal. Its sole purpose is to authenticate requests and proxy encrypted payloads to NEAR AI. When contributing, keep in mind:
 
 - **Never add code that reads, logs, or transforms message content** — messages are E2EE-encrypted
 - **No database dependencies** — auth is stateless JWT verification

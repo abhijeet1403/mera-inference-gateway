@@ -3,30 +3,17 @@ import type { Response } from 'express';
 import { Readable } from 'stream';
 import { AuthGuard } from '../auth/auth.guard';
 import type { AuthenticatedRequest } from '../auth/auth.guard';
-import type { ProviderName } from '../constants';
 import { ChatService } from './chat.service';
 import { InferenceQueueService } from './inference-queue.service';
 
-/** E2EE request headers forwarded to the upstream provider (lowercase →
- *  canonical). Covers RedPill v1 (signing/pubkey) and NEAR AI v2
- *  (adds X-Encryption-Version). X-E2EE-Provider is extracted separately to
- *  pick the upstream; it is NOT forwarded. */
+/** E2EE request headers forwarded upstream (lowercase → canonical). NEAR AI
+ *  v2 requires `X-Encryption-Version`. */
 const E2EE_REQUEST_HEADERS: Record<string, string> = {
   'x-signing-algo': 'X-Signing-Algo',
   'x-client-pub-key': 'X-Client-Pub-Key',
   'x-model-pub-key': 'X-Model-Pub-Key',
   'x-encryption-version': 'X-Encryption-Version',
 };
-
-const PROVIDER_HEADER = 'x-e2ee-provider';
-const DEFAULT_PROVIDER: ProviderName = 'redpill';
-
-function extractProvider(req: AuthenticatedRequest): ProviderName {
-  const raw = req.headers[PROVIDER_HEADER];
-  const v =
-    typeof raw === 'string' ? raw : Array.isArray(raw) ? raw[0] : undefined;
-  return v === 'nearai' || v === 'redpill' ? v : DEFAULT_PROVIDER;
-}
 
 /** Response headers that must never be forwarded to the client. */
 const BLOCKED_RESPONSE_HEADERS = new Set([
@@ -63,13 +50,8 @@ export class CompletionsController {
     const userId = req.user?.id;
 
     try {
-      const provider = extractProvider(req);
       const e2eeHeaders = this.extractE2EEHeaders(req);
-      const upstream = await this.chatService.proxyChat(
-        provider,
-        req.body,
-        e2eeHeaders,
-      );
+      const upstream = await this.chatService.proxyChat(req.body, e2eeHeaders);
 
       res.status(upstream.status);
 
@@ -80,7 +62,7 @@ export class CompletionsController {
         }
       });
 
-      // Non-2xx from RedPill: read full body, log it, then forward. Safe because
+      // Non-2xx from upstream: read full body, log it, then forward. Safe because
       // errors are never streamed (content-length is set by upstream) and E2EE
       // never applies to error envelopes.
       if (!upstream.ok) {
@@ -151,11 +133,10 @@ export class CompletionsController {
       return;
     }
 
-    const provider = extractProvider(req);
     const e2eeHeaders = this.extractE2EEHeaders(req);
     const snapOnEntry = this.queue.snapshot();
     this.logger.debug(
-      `Batch request user=${userId ?? 'unknown'} provider=${provider} items=${requests.length} ` +
+      `Batch request user=${userId ?? 'unknown'} items=${requests.length} ` +
         `queueActive=${snapOnEntry.active} queueWaiting=${snapOnEntry.waiting} ` +
         `e2eeHeaders=${JSON.stringify(e2eeHeaders)}`,
     );
@@ -174,7 +155,6 @@ export class CompletionsController {
               }`,
             );
             const upstream = await this.chatService.proxyChat(
-              provider,
               input,
               e2eeHeaders,
             );

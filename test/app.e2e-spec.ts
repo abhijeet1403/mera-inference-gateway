@@ -24,7 +24,7 @@ describe('InferenceGateway (e2e)', () => {
     await new Promise<void>((resolve) => jwksServer.listen(0, resolve));
     const jwksPort = (jwksServer.address() as { port: number }).port;
 
-    process.env.RED_PILL_API_KEY = 'test-key';
+    process.env.NEAR_AI_API_KEY = 'test-key';
     process.env.AUTH_JWKS_URL = `http://localhost:${jwksPort}/jwks`;
 
     const moduleFixture: TestingModule = await Test.createTestingModule({

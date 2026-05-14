@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Standalone NestJS inference gateway that proxies E2EE-encrypted chat requests to RedPill AI. The gateway **never decrypts or inspects message content** — it authenticates requests via JWT and forwards encrypted payloads to RedPill's TEE-protected inference.
+Standalone NestJS inference gateway that proxies E2EE-encrypted chat requests to NEAR AI. The gateway **never decrypts or inspects message content** — it authenticates requests via JWT and forwards encrypted payloads to NEAR AI's TEE-protected inference.
 
 ## Commands
 
@@ -25,13 +25,13 @@ npm run test:cov       # Test coverage
 src/
   main.ts              # Bootstrap: helmet, CORS, validation, exception filter
   app.module.ts        # Root module: config, logging (Pino/GCP), throttling, chat module
-  constants.ts         # DEFAULT_MODEL, DEFAULT_LLM_TEMPERATURE, REDPILL_BASE_URL
+  constants.ts         # DEFAULT_MODEL, DEFAULT_LLM_TEMPERATURE, UPSTREAM_BASE_URL
   auth/
     auth.guard.ts      # JWT verification using BETTER_AUTH_SECRET (no DB)
   chat/
     chat.module.ts     # Registers controller + service
     chat.controller.ts # POST /api/chat (SSE streaming), POST /api/batch-infer
-    chat.service.ts    # RedPill AI proxy: streamChat() + generateTextResponse()
+    chat.service.ts    # NEAR AI proxy: streamChat() + generateTextResponse()
     dto/
       chat.dto.ts          # ChatRequestBody interface (OpenAI-compatible)
       batch-infer.dto.ts   # BatchInferRequestDto with class-validator
@@ -43,7 +43,7 @@ src/
 
 ## Key Design Principle: E2EE Passthrough
 
-The gateway is intentionally ignorant of message content. `ChatRequestBody.messages[].content` contains E2EE-encrypted payloads. The `ChatService` serializes the request body and forwards it to RedPill without inspection.
+The gateway is intentionally ignorant of message content. `ChatRequestBody.messages[].content` contains E2EE-encrypted payloads. The `ChatService` serializes the request body and forwards it to NEAR AI without inspection.
 
 **Never add code that reads, logs, or transforms message content.**
 
@@ -60,7 +60,7 @@ The gateway is intentionally ignorant of message content. `ChatRequestBody.messa
 
 | Variable | Required | Default |
 |----------|----------|---------|
-| `RED_PILL_API_KEY` | Yes | — |
+| `NEAR_AI_API_KEY` | Yes | — |
 | `AUTH_JWKS_URL` | Yes | — |
 | `PORT` | No | `8080` |
 | `NODE_ENV` | No | `development` |
